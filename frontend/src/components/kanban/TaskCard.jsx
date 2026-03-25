@@ -1,114 +1,62 @@
 import React from 'react';
-import { useDraggable } from '@hello-pangea/dnd';
-import { Clock, Edit2, Trash2 } from 'lucide-react';
+import { Draggable } from '@hello-pangea/dnd';
+import { Clock, MessageSquare, Paperclip, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 
-/**
- * Task Card Component
- * Displays individual task information with drag functionality
- */
 const TaskCard = ({ task, index, onEdit, onDelete }) => {
-  const [{ isDragging }, drag] = useDraggable({
-    id: task.id,
-    index,
-  });
-
-  const statusColors = {
-    TODO: 'border-gray-300 bg-gray-50',
-    IN_PROGRESS: 'border-blue-300 bg-blue-50',
-    DONE: 'border-green-300 bg-green-50'
-  };
-
-  const statusIcons = {
-    TODO: <Clock className="w-4 h-4 text-gray-500" />,
-    IN_PROGRESS: <Clock className="w-4 h-4 text-blue-500" />,
-    DONE: <Clock className="w-4 h-4 text-green-500" />
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric' 
-    });
-  };
-
   return (
-    <div
-      ref={drag}
-      className={`
-        relative bg-white rounded-lg shadow-sm border-2 p-4 mb-3 
-        hover:shadow-md transition-all duration-200 cursor-move
-        ${statusColors[task.status] || statusColors.TODO}
-        ${isDragging ? 'opacity-50 rotate-2 scale-105' : ''}
-      `}
-    >
-      {/* Task Header */}
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center space-x-2">
-          {statusIcons[task.status]}
-          <span className={`
-            text-xs font-semibold px-2 py-1 rounded-full
-            ${task.status === 'TODO' ? 'bg-gray-200 text-gray-700' : ''}
-            ${task.status === 'IN_PROGRESS' ? 'bg-blue-200 text-blue-700' : ''}
-            ${task.status === 'DONE' ? 'bg-green-200 text-green-700' : ''}
-          `}>
-            {task.status.replace('_', ' ')}
-          </span>
-        </div>
-        
-        {/* Action Buttons */}
-        <div className="flex space-x-1 opacity-0 hover:opacity-100 transition-opacity">
-          <button
-            onClick={() => onEdit(task)}
-            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-            title="Edit task"
-          >
-            <Edit2 className="w-3 h-3" />
-          </button>
-          <button
-            onClick={() => onDelete(task.id)}
-            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-            title="Delete task"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+    <Draggable draggableId={task.id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          className={`
+            group relative bg-slate-900 border border-white/10 rounded-xl p-4 shadow-lg
+            hover:border-indigo-500/50 hover:shadow-indigo-500/5 transition-all duration-200
+            ${snapshot.isDragging ? 'shadow-2xl border-indigo-500 ring-2 ring-indigo-500/20' : ''}
+          `}
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between mb-3">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+              task.status === 'DONE' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+              task.status === 'IN_PROGRESS' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+              'bg-slate-500/10 text-slate-400 border-slate-500/20'
+            }`}>
+              {task.status.replace('_', ' ')}
+            </span>
+            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => onEdit(task)} className="p-1 hover:bg-white/5 rounded text-slate-400 hover:text-indigo-400">
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => onDelete(task.id)} className="p-1 hover:bg-white/5 rounded text-slate-400 hover:text-rose-400">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
 
-      {/* Task Title */}
-      <h3 className="font-semibold text-gray-900 mb-2 leading-tight">
-        {task.title}
-      </h3>
+          {/* Title */}
+          <h3 className="text-sm font-bold text-slate-100 mb-1 group-hover:text-white transition-colors">{task.title}</h3>
+          
+          {/* Description */}
+          {task.description && (
+            <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed mb-4">{task.description}</p>
+          )}
 
-      {/* Task Description */}
-      {task.description && (
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {task.description}
-        </p>
+          {/* Footer */}
+          <div className="flex items-center justify-between pt-3 border-t border-white/5">
+            <div className="flex items-center gap-3 text-slate-600">
+              <span className="flex items-center gap-1 text-[10px] font-medium"><MessageSquare className="w-3 h-3" /> 2</span>
+              <span className="flex items-center gap-1 text-[10px] font-medium"><Paperclip className="w-3 h-3" /> 1</span>
+            </div>
+            {/* Avatar placeholder */}
+            <div className="w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 border border-slate-950 flex items-center justify-center text-[8px] font-bold text-white">
+              JD
+            </div>
+          </div>
+        </div>
       )}
-
-      {/* Task Footer */}
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span>
-          Created {formatDate(task.createdAt)}
-        </span>
-        {task.updatedAt !== task.createdAt && (
-          <span>
-            Updated {formatDate(task.updatedAt)}
-          </span>
-        )}
-      </div>
-
-      {/* Drag Handle Indicator */}
-      <div className="absolute top-2 left-2 opacity-0 hover:opacity-100 transition-opacity">
-        <div className="flex flex-col space-y-1">
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-          <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-        </div>
-      </div>
-    </div>
+    </Draggable>
   );
 };
 

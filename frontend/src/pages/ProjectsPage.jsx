@@ -1,39 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext-clean';
 import { projectService } from '../services/projectService-prisma';
+import PageShell from '../components/PageShell';
 
-/**
- * Projects Page Component
- * Uses React Router for navigation - NO PAGE RELOADS
- */
+const statusColors = {
+  ACTIVE:     'bg-emerald-500/10 text-emerald-300 border border-emerald-400/20',
+  PLANNING:   'bg-sky-500/10 text-sky-300 border border-sky-400/20',
+  ON_HOLD:    'bg-amber-500/10 text-amber-300 border border-amber-400/20',
+  COMPLETED:  'bg-indigo-500/10 text-indigo-300 border border-indigo-400/20',
+  ARCHIVED:   'bg-slate-500/10 text-slate-400 border border-slate-400/20',
+};
+
+const formatDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Not set';
+
 const ProjectsPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    pages: 0
-  });
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, pages: 0 });
 
-  // Load projects
   const loadProjects = async (page = 1) => {
     try {
       setLoading(true);
       setError('');
-      
-      const response = await projectService.getUserProjects({ page, limit: pagination.limit });
-      
-      if (response.success) {
-        setProjects(response.data.projects);
-        setPagination(response.data.pagination);
-      } else {
-        setError(response.error || 'Failed to load projects');
-      }
+      const res = await projectService.getUserProjects({ page, limit: pagination.limit });
+      if (res.success) {
+        setProjects(res.data.projects);
+        setPagination(res.data.pagination);
+      } else setError(res.error || 'Failed to load projects');
     } catch (err) {
       setError(err.error || 'Failed to load projects');
     } finally {
@@ -41,262 +39,158 @@ const ProjectsPage = () => {
     }
   };
 
-  // Load projects on component mount
-  useEffect(() => {
-    loadProjects();
-  }, []);
+  useEffect(() => { loadProjects(); }, []);
 
-  // Handle project deletion
-  const handleDeleteProject = async (projectId) => {
-    if (!window.confirm('Are you sure you want to delete this project?')) {
-      return;
-    }
-
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this project?')) return;
     try {
-      const response = await projectService.deleteProject(projectId);
-      
-      if (response.success) {
-        loadProjects(pagination.page);
-      } else {
-        setError(response.error || 'Failed to delete project');
-      }
+      const res = await projectService.deleteProject(id);
+      if (res.success) loadProjects(pagination.page);
+      else setError(res.error || 'Failed to delete');
     } catch (err) {
       setError(err.error || 'Failed to delete project');
     }
   };
 
-  // Navigate to add project - NO PAGE RELOAD
-  const handleNavigateToAddProject = () => {
-    navigate('/projects/new');
-  };
-
-  // Navigate to profile - NO PAGE RELOAD
-  const handleNavigateToProfile = () => {
-    navigate('/profile');
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  // Get feature label
-  const getFeatureLabel = (featureId) => {
-    const featureMap = {
-      backlog: 'Backlog',
-      sprint_management: 'Sprint Management',
-      issue_tracking: 'Issue Tracking',
-      kanban_board: 'Kanban Board',
-      reports: 'Reports',
-      time_tracking: 'Time Tracking',
-      team_management: 'Team Management',
-      team_collaboration: 'Team Collaboration',
-      notifications: 'Notifications'
-    };
-    return featureMap[featureId] || featureId;
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <Link to="/profile" className="text-xl font-bold text-gray-900 hover:text-gray-700 transition-colors">
-                ProTool MERN
-              </Link>
-              <span className="ml-2 text-sm text-gray-500">Projects</span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <Link 
-                to="/profile" 
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Profile
-              </Link>
-              <div className="text-sm text-gray-600">
-                {user?.name}
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
+    <PageShell breadcrumb={[{ label: 'Projects' }]}>
+      <div className="max-w-6xl mx-auto px-6 py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">My Projects</h1>
-            <p className="text-gray-600 mt-1">Manage your Jira-style projects</p>
+            <h1 className="text-3xl font-bold text-white">My Projects</h1>
+            <p className="text-slate-400 mt-1 text-sm">Manage all your active workspaces</p>
           </div>
           <button
-            onClick={handleNavigateToAddProject}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors flex items-center"
+            onClick={() => navigate('/projects/new')}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-95 shadow-lg shadow-indigo-500/20"
           >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             New Project
           </button>
         </div>
 
-        {/* Error Message */}
+        {/* Error */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-6">
+          <div className="bg-rose-500/10 border border-rose-400/20 text-rose-300 text-sm px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
             {error}
-            <button
-              onClick={() => setError('')}
-              className="ml-2 text-red-500 hover:text-red-700"
-            >
-              ×
-            </button>
+            <button onClick={() => setError('')} className="ml-2 text-rose-400 hover:text-rose-200">×</button>
           </div>
         )}
 
-        {/* Loading State */}
+        {/* Loading */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading projects...</p>
-            </div>
+          <div className="flex items-center justify-center py-24">
+            <svg className="animate-spin h-8 w-8 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="text-center py-24">
+            <div className="text-5xl mb-4">🗂️</div>
+            <h3 className="text-lg font-semibold text-white mb-2">No projects yet</h3>
+            <p className="text-slate-400 text-sm mb-6">Get started by creating your first project</p>
+            <button
+              onClick={() => navigate('/projects/new')}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-all"
+            >
+              Create Project
+            </button>
           </div>
         ) : (
           <>
-            {/* Projects Grid */}
-            {projects.length === 0 ? (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No projects yet</h3>
-                <p className="text-gray-600 mb-4">Get started by creating your first project</p>
-                <button
-                  onClick={handleNavigateToAddProject}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors"
+            {/* Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/[0.08] hover:border-white/20 hover:-translate-y-0.5 transition-all duration-200 shadow-lg cursor-pointer group"
+                  onClick={() => navigate(`/projects/${project.id}`)}
                 >
-                  Create Project
+                  {/* Top row */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center font-bold text-sm flex-shrink-0 shadow shadow-indigo-500/30">
+                      {project.name.substring(0, 2).toUpperCase()}
+                    </div>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[project.status] ?? statusColors.ACTIVE}`}>
+                      {project.status || 'ACTIVE'}
+                    </span>
+                  </div>
+
+                  <h3 className="text-base font-bold text-white mb-1 line-clamp-1 group-hover:text-indigo-300 transition-colors">
+                    {project.name}
+                  </h3>
+
+                  {project.description && (
+                    <p className="text-slate-400 text-xs mb-3 line-clamp-2">{project.description}</p>
+                  )}
+
+                  {/* Stats row */}
+                  <div className="flex items-center gap-4 text-xs text-slate-500 mb-4">
+                    <span>📅 {formatDate(project.startDate)}</span>
+                    <span>✅ {project._count?.tasks ?? 0} tasks</span>
+                  </div>
+
+                  {/* Actions */}
+                  <div
+                    className="flex items-center justify-between pt-3 border-t border-white/5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-xs text-slate-600">{new Date(project.createdAt).toLocaleDateString()}</span>
+                    <div className="flex gap-3">
+                      <button
+                        className="text-indigo-400 hover:text-indigo-300 text-xs font-semibold transition-colors"
+                        onClick={() => navigate(`/projects/${project.id}`)}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="text-amber-400 hover:text-amber-300 text-xs font-semibold transition-colors"
+                        onClick={() => navigate(`/projects/${project.id}/edit`)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="text-rose-400 hover:text-rose-300 text-xs font-semibold transition-colors"
+                        onClick={() => handleDelete(project.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {pagination.pages > 1 && (
+              <div className="flex items-center justify-center gap-2">
+                <button
+                  onClick={() => loadProjects(pagination.page - 1)}
+                  disabled={pagination.page === 1}
+                  className="px-4 py-1.5 text-sm border border-white/10 rounded-lg text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/5 transition-all"
+                >
+                  ← Prev
+                </button>
+                <span className="text-sm text-slate-400 px-2">
+                  Page {pagination.page} of {pagination.pages}
+                </span>
+                <button
+                  onClick={() => loadProjects(pagination.page + 1)}
+                  disabled={pagination.page === pagination.pages}
+                  className="px-4 py-1.5 text-sm border border-white/10 rounded-lg text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-white/5 transition-all"
+                >
+                  Next →
                 </button>
               </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                  {projects.map((project) => (
-                    <div key={project.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all">
-                      <div className="p-6">
-                        {/* Project Header */}
-                        <div className="flex items-start justify-between mb-4">
-                          <h3 className="text-lg font-bold text-gray-900 line-clamp-2">
-                            {project.name}
-                          </h3>
-                          <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                            {project.status || 'Active'}
-                          </span>
-                        </div>
-
-                        {/* Project Description */}
-                        {project.description && (
-                          <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                            {project.description}
-                          </p>
-                        )}
-
-                        {/* Project Dates */}
-                        <div className="flex items-center text-sm text-gray-500 mb-4">
-                          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          {formatDate(project.startDate)} - {formatDate(project.endDate)}
-                        </div>
-
-                        {/* Features */}
-                        {project.features && project.features.length > 0 && (
-                          <div className="mb-4">
-                            <div className="flex flex-wrap gap-1">
-                              {project.features.slice(0, 3).map((feature) => (
-                                <span
-                                  key={feature}
-                                  className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
-                                >
-                                  {getFeatureLabel(feature)}
-                                </span>
-                              ))}
-                              {project.features.length > 3 && (
-                                <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded">
-                                  +{project.features.length - 3} more
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Project Actions */}
-                        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                          <div className="text-xs text-gray-500">
-                            Created {new Date(project.createdAt).toLocaleDateString()}
-                          </div>
-                          <div className="flex space-x-3">
-                            <button
-                              className="text-blue-600 hover:text-blue-800 text-sm font-semibold transition-colors"
-                              onClick={() => navigate(`/projects/${project.id}`)}
-                            >
-                              View
-                            </button>
-                            <button
-                              className="text-amber-600 hover:text-amber-800 text-sm font-semibold transition-colors"
-                              onClick={() => navigate(`/projects/${project.id}/edit`)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="text-red-600 hover:text-red-800 text-sm font-semibold transition-colors"
-                              onClick={() => handleDeleteProject(project.id)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Pagination */}
-                {pagination.pages > 1 && (
-                  <div className="flex items-center justify-center space-x-2">
-                    <button
-                      onClick={() => loadProjects(pagination.page - 1)}
-                      disabled={pagination.page === 1}
-                      className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Previous
-                    </button>
-                    <span className="px-3 py-1">
-                      Page {pagination.page} of {pagination.pages}
-                    </span>
-                    <button
-                      onClick={() => loadProjects(pagination.page + 1)}
-                      disabled={pagination.page === pagination.pages}
-                      className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </>
             )}
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </PageShell>
   );
 };
 

@@ -1,46 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { DragDropContext } from '@hello-pangea/dnd';
-import { Plus, RefreshCw, Settings } from 'lucide-react';
+import { DragDropContext, Droppable } from '@hello-pangea/dnd';
+import { Plus, RefreshCw, Layers } from 'lucide-react';
 import { kanbanService } from '../services/kanbanService';
+import { projectService } from '../services/projectService-prisma';
 import KanbanColumn from '../components/kanban/KanbanColumn';
 import TaskModal from '../components/kanban/TaskModal';
+import PageShell from '../components/PageShell';
 
-/**
- * Kanban Board Page
- * Main component for the Jira-style Kanban board
- */
 const KanbanBoard = () => {
   const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  // Demo project ID - in real app, this would come from URL params or context
-  const projectId = 'demo-project-123';
-
   // Column configuration
   const columns = [
-    { id: 'TODO', title: 'To Do', color: 'gray' },
-    { id: 'IN_PROGRESS', title: 'In Progress', color: 'blue' },
-    { id: 'DONE', title: 'Done', color: 'green' }
+    { id: 'TODO', title: 'To Do' },
+    { id: 'IN_PROGRESS', title: 'In Progress' },
+    { id: 'DONE', title: 'Done' }
   ];
 
-  // Fetch tasks on component mount
-  useEffect(() => {
-    fetchTasks();
-  }, []);
-
-  /**
-   * Fetch all tasks for the project
-   */
-  const fetchTasks = async () => {
+  const fetchInitialData = async () => {
     try {
       setLoading(true);
+      const res = await projectService.getUserProjects();
+      if (res.success && res.data.projects.length > 0) {
+        setProjects(res.data.projects);
+        const firstProjId = res.data.projects[0].id;
+        setSelectedProjectId(firstProjId);
+        await fetchTasks(firstProjId);
+      } else {
+        setLoading(false);
+      }
+    } catch (err) {
+      setError(err.error || 'Failed to load projects');
+      setLoading(false);
+    }
+  };
+
+  const fetchTasks = async (pid) => {
+    try {
       setError(null);
-      const response = await kanbanService.getTasks(projectId);
-      
+      const response = await kanbanService.getTasks(pid);
       if (response.success) {
         setTasks(response.data);
       } else {
@@ -48,272 +53,144 @@ const KanbanBoard = () => {
       }
     } catch (err) {
       setError(err.error || 'Failed to fetch tasks');
-      console.error('Error fetching tasks:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * Handle drag end event
-   * Updates task status when dropped in a new column
-   */
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
   const handleDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
+    if (!destination || (destination.droppableId === source.droppableId && destination.index === source.index)) return;
 
-    // If there's no destination or the item was dropped in the same place, do nothing
-    if (!destination || 
-        (destination.droppableId === source.droppableId && 
-         destination.index === source.index)) {
-      return;
-    }
-
-    // Find the task being moved
     const task = tasks.find(t => t.id === draggableId);
-    if (!task) return;
-
-    // If the status hasn't changed, no need to update
-    if (task.status === destination.droppableId) {
-      return;
-    }
+    if (!task || task.status === destination.droppableId) return;
 
     try {
       setIsUpdating(true);
+      // Optimistic update
+      setTasks(prev => prev.map(t => t.id === draggableId ? { ...t, status: destination.droppableId } : t));
       
-      // Update task status in backend
-      const response = await kanbanService.updateTaskStatus(
-        draggableId, 
-        destination.droppableId
-      );
-
-      if (response.success) {
-        // Update local state with the updated task
-        setTasks(prevTasks => 
-          prevTasks.map(t => 
-            t.id === draggableId 
-              ? { ...t, status: destination.droppableId }
-              : t
-          )
-        );
-      } else {
-        setError(response.error || 'Failed to update task status');
-        // Revert the change by refetching
-        fetchTasks();
-      }
+      const response = await kanbanService.updateTask(draggableId, { status: destination.droppableId });
+      if (!response.success) fetchTasks(selectedProjectId);
     } catch (err) {
-      setError(err.error || 'Failed to update task status');
-      // Revert the change by refetching
-      fetchTasks();
+      fetchTasks(selectedProjectId);
     } finally {
       setIsUpdating(false);
     }
   };
 
-  /**
-   * Handle creating a new task
-   */
   const handleCreateTask = async (taskData) => {
     try {
-      const response = await kanbanService.createTask(taskData);
-      
+      const response = await kanbanService.createTask({ ...taskData, projectId: selectedProjectId });
       if (response.success) {
-        setTasks(prevTasks => [response.data, ...prevTasks]);
+        setTasks(prev => [response.data, ...prev]);
         setIsModalOpen(false);
-      } else {
-        setError(response.error || 'Failed to create task');
       }
-    } catch (err) {
-      setError(err.error || 'Failed to create task');
-      throw err; // Re-throw to let modal handle the error
-    }
+    } catch (err) { throw err; }
   };
 
-  /**
-   * Handle updating an existing task
-   */
   const handleUpdateTask = async (taskId, taskData) => {
     try {
       const response = await kanbanService.updateTask(taskId, taskData);
-      
       if (response.success) {
-        setTasks(prevTasks => 
-          prevTasks.map(t => 
-            t.id === taskId ? response.data : t
-          )
-        );
+        setTasks(prev => prev.map(t => t.id === taskId ? response.data : t));
         setIsModalOpen(false);
         setEditingTask(null);
-      } else {
-        setError(response.error || 'Failed to update task');
       }
-    } catch (err) {
-      setError(err.error || 'Failed to update task');
-      throw err; // Re-throw to let modal handle the error
-    }
+    } catch (err) { throw err; }
   };
 
-  /**
-   * Handle deleting a task
-   */
   const handleDeleteTask = async (taskId) => {
-    if (!window.confirm('Are you sure you want to delete this task?')) {
-      return;
-    }
-
+    if (!window.confirm('Delete this task?')) return;
     try {
       const response = await kanbanService.deleteTask(taskId);
-      
-      if (response.success) {
-        setTasks(prevTasks => prevTasks.filter(t => t.id !== taskId));
-      } else {
-        setError(response.error || 'Failed to delete task');
-      }
-    } catch (err) {
-      setError(err.error || 'Failed to delete task');
-    }
+      if (response.success) setTasks(prev => prev.filter(t => t.id !== taskId));
+    } catch (err) { setError(err.error || 'Failed to delete task'); }
   };
 
-  /**
-   * Open modal for creating a new task
-   */
-  const handleAddTask = (status = 'TODO') => {
-    setEditingTask(null);
-    setIsModalOpen(true);
-  };
-
-  /**
-   * Open modal for editing an existing task
-   */
-  const handleEditTask = (task) => {
-    setEditingTask(task);
-    setIsModalOpen(true);
-  };
-
-  /**
-   * Close modal
-   */
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingTask(null);
-    setError(null);
-  };
-
-  /**
-   * Get tasks for a specific status
-   */
-  const getTasksByStatus = (status) => {
-    return tasks.filter(task => task.status === status);
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading Kanban board...</p>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">
-                Kanban Board
-              </h1>
-              <span className="text-sm text-gray-500">
-                Demo Project
-              </span>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              {/* Refresh Button */}
-              <button
-                onClick={fetchTasks}
-                disabled={isUpdating}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                title="Refresh tasks"
+    <PageShell breadcrumb={[{ label: 'Kanban' }]}>
+      <div className="max-w-[1600px] mx-auto px-6 py-8">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold text-white">Board</h1>
+            <div className="relative">
+              <Layers className="absolute left-3 top-3 w-4 h-4 text-slate-500" />
+              <select
+                value={selectedProjectId}
+                onChange={(e) => { setSelectedProjectId(e.target.value); setLoading(true); fetchTasks(e.target.value); }}
+                className="bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-200 outline-none focus:border-indigo-500 transition-all cursor-pointer"
               >
-                <RefreshCw className={`w-5 h-5 ${isUpdating ? 'animate-spin' : ''}`} />
-              </button>
-              
-              {/* Settings Button */}
-              <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
-                <Settings className="w-5 h-5" />
-              </button>
-              
-              {/* Add Task Button */}
-              <button
-                onClick={() => handleAddTask()}
-                className="flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Task
-              </button>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id} className="bg-slate-900">{p.name || p.title}</option>
+                ))}
+              </select>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Error Alert */}
-      {error && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
-            <div className="flex items-center justify-between">
-              <span>{error}</span>
-              <button
-                onClick={() => setError(null)}
-                className="text-red-500 hover:text-red-700"
-              >
-                ×
-              </button>
-            </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fetchTasks(selectedProjectId)}
+              className="p-2.5 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+            >
+              <RefreshCw className={`w-5 h-5 ${isUpdating ? 'animate-spin' : ''}`} />
+            </button>
+            <button
+              onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
+              className="flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20"
+            >
+              <Plus className="w-4 h-4" />
+              Add Task
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Kanban Board */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Error Alert */}
+        {error && (
+          <div className="bg-rose-500/10 border border-rose-400/20 text-rose-300 px-4 py-3 rounded-xl mb-6 flex items-center justify-between">
+            <span>{error}</span>
+            <button onClick={() => setError(null)} className="text-rose-400 hover:text-rose-200">×</button>
+          </div>
+        )}
+
+        {/* Board */}
         <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 overflow-x-auto pb-4">
+          <div className="flex gap-6 overflow-x-auto pb-6 scrollbar-hide">
             {columns.map((column) => (
               <KanbanColumn
                 key={column.id}
                 title={column.title}
                 status={column.id}
-                tasks={getTasksByStatus(column.id)}
-                onTaskEdit={handleEditTask}
+                tasks={tasks.filter(t => t.status === column.id)}
+                onTaskEdit={(t) => { setEditingTask(t); setIsModalOpen(true); }}
                 onTaskDelete={handleDeleteTask}
-                onAddTask={handleAddTask}
-                color={column.color}
+                onAddTask={(status) => { setEditingTask({ status }); setIsModalOpen(true); }}
               />
             ))}
           </div>
         </DragDropContext>
+
+        {/* Task Modal */}
+        <TaskModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={editingTask?.id ? handleUpdateTask : handleCreateTask}
+          task={editingTask}
+          projectId={selectedProjectId}
+        />
       </div>
-
-      {/* Task Modal */}
-      <TaskModal
-        isOpen={isModalOpen}
-        onClose={handleCloseModal}
-        onSave={editingTask ? handleUpdateTask : handleCreateTask}
-        task={editingTask}
-        projectId={projectId}
-      />
-
-      {/* Updating Indicator */}
-      {isUpdating && (
-        <div className="fixed top-4 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50">
-          Updating task...
-        </div>
-      )}
-    </div>
+    </PageShell>
   );
 };
 

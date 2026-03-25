@@ -13,6 +13,11 @@ import ProfilePage from './pages/ProfilePage';
 import AddProjectPage from './pages/AddProjectPage';
 import ProjectDetail from './pages/ProjectDetail';
 import EditProjectPage from './pages/EditProjectPage';
+import Tasks from './pages/Tasks';
+import Analytics from './pages/Analytics';
+import KanbanBoard from './pages/KanbanBoard';
+import Sprints from './pages/Sprints';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
@@ -60,17 +65,36 @@ function App() {
                   <ProfilePage />
                 </ProtectedRoute>
               } />
+
+              <Route path="/tasks" element={
+                <ProtectedRoute>
+                  <Tasks />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/analytics" element={
+                <ProtectedRoute>
+                  <Analytics />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/kanban" element={
+                <ProtectedRoute>
+                  <KanbanBoard />
+                </ProtectedRoute>
+              } />
+
+              <Route path="/sprints" element={
+                <ProtectedRoute>
+                  <Sprints />
+                </ProtectedRoute>
+              } />
               
               {/* Default redirect */}
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               
               {/* 404 fallback */}
-              <Route path="*" element={
-                <div style={{ textAlign: 'center', padding: '2rem' }}>
-                  <h1>404 - Page Not Found</h1>
-                  <p>The page you're looking for doesn't exist.</p>
-                </div>
-              } />
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </div>
         </Router>

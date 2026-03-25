@@ -1,236 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Trash2, AlertCircle } from 'lucide-react';
 
-/**
- * Task Modal Component
- * For creating and editing tasks
- */
-const TaskModal = ({ 
-  isOpen, 
-  onClose, 
-  onSave, 
-  task = null, 
-  projectId = null 
-}) => {
+const TaskModal = ({ isOpen, onClose, onSave, task, projectId }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    status: 'TODO'
+    status: 'TODO',
+    priority: 'MEDIUM',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Initialize form data when task changes
   useEffect(() => {
     if (task) {
       setFormData({
         title: task.title || '',
         description: task.description || '',
-        status: task.status || 'TODO'
+        status: task.status || 'TODO',
+        priority: task.priority || 'MEDIUM',
       });
     } else {
-      setFormData({
-        title: '',
-        description: '',
-        status: 'TODO'
-      });
+      setFormData({ title: '', description: '', status: 'TODO', priority: 'MEDIUM' });
     }
-    setError('');
+    setError(null);
   }, [task, isOpen]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    setError('');
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!formData.title.trim()) { setError('Title is required'); return; }
     
-    // Validation
-    if (!formData.title.trim()) {
-      setError('Task title is required');
-      return;
-    }
-
-    if (formData.title.length > 200) {
-      setError('Task title must be less than 200 characters');
-      return;
-    }
-
-    if (formData.description && formData.description.length > 1000) {
-      setError('Task description must be less than 1000 characters');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError('');
-
+    setLoading(true);
     try {
-      const taskData = {
-        ...formData,
-        title: formData.title.trim(),
-        description: formData.description.trim() || null
-      };
-
-      if (task) {
-        // Update existing task
-        await onSave(task.id, taskData);
-      } else {
-        // Create new task
-        await onSave({
-          ...taskData,
-          projectId
-        });
-      }
-
+      await onSave(task?.id, formData);
       onClose();
     } catch (err) {
-      setError(err.error || 'Failed to save task');
+      setError(err.error || 'Something went wrong');
     } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleClose = () => {
-    if (!isSubmitting) {
-      onClose();
-      setError('');
-    }
-  };
-
-  const handleBackdropClick = (e) => {
-    if (e.target === e.currentTarget) {
-      handleClose();
+      setLoading(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {task ? 'Edit Task' : 'Create New Task'}
-          </h2>
-          <button
-            onClick={handleClose}
-            disabled={isSubmitting}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-          >
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
+      
+      {/* Modal */}
+      <div className="relative w-full max-w-lg bg-slate-900 border border-white/10 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="bg-white/5 px-6 py-4 border-b border-white/5 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">{task?.id ? 'Edit Task' : 'New Task'}</h2>
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors text-slate-400">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="space-y-4">
-            {/* Title Input */}
-            <div>
-              <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                Task Title *
-              </label>
-              <input
-                type="text"
-                id="title"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                disabled={isSubmitting}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                placeholder="Enter task title..."
-                maxLength={200}
-                autoFocus
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                {formData.title.length}/200 characters
-              </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+          {error && (
+            <div className="bg-rose-500/10 border border-rose-400/20 text-rose-300 text-sm px-4 py-2.5 rounded-xl flex items-center gap-2">
+              <AlertCircle className="w-4 h-4" /> {error}
             </div>
+          )}
 
-            {/* Status Select (only for editing) */}
-            {task && (
-              <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  disabled={isSubmitting}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                >
-                  <option value="TODO">To Do</option>
-                  <option value="IN_PROGRESS">In Progress</option>
-                  <option value="DONE">Done</option>
-                </select>
-              </div>
-            )}
-
-            {/* Description Textarea */}
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                id="description"
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                disabled={isSubmitting}
-                rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed resize-none"
-                placeholder="Add task description (optional)..."
-                maxLength={1000}
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                {formData.description.length}/1000 characters
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Title</label>
+            <input
+              autoFocus
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="E.g., Implement dark mode"
+            />
           </div>
 
-          {/* Modal Footer */}
-          <div className="flex justify-end space-x-3 mt-6">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Description</label>
+            <textarea
+              rows={4}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all resize-none"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="What needs to be done?"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Status</label>
+              <select
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              >
+                <option value="TODO">To Do</option>
+                <option value="IN_PROGRESS">In Progress</option>
+                <option value="DONE">Done</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">Priority</label>
+              <select
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:border-indigo-500 outline-none transition-all"
+                value={formData.priority}
+                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+              >
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="pt-4 flex items-center justify-end gap-3 border-t border-white/5">
             <button
               type="button"
-              onClick={handleClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              onClick={onClose}
+              className="px-4 py-2.5 text-sm font-semibold text-slate-400 hover:text-white transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || !formData.title.trim()}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              disabled={loading}
+              className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
             >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  {task ? 'Update Task' : 'Create Task'}
-                </>
-              )}
+              {loading && <Save className="w-4 h-4 animate-spin" />}
+              {task?.id ? 'Save Changes' : 'Create Task'}
             </button>
           </div>
         </form>

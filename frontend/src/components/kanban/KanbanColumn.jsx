@@ -1,12 +1,8 @@
 import React from 'react';
-import { useDroppable } from '@hello-pangea/dnd';
-import { Plus } from 'lucide-react';
+import { Droppable } from '@hello-pangea/dnd';
+import { Plus, MoreVertical } from 'lucide-react';
 import TaskCard from './TaskCard';
 
-/**
- * Kanban Column Component
- * Represents a single column in the Kanban board
- */
 const KanbanColumn = ({ 
   title, 
   status, 
@@ -14,133 +10,70 @@ const KanbanColumn = ({
   onTaskEdit, 
   onTaskDelete,
   onAddTask,
-  color = 'gray'
 }) => {
-  const { isOver, setNodeRef } = useDroppable({
-    droppableId: status,
-  });
-
-  const columnColors = {
-    TODO: {
-      bg: 'bg-gray-50',
-      border: 'border-gray-200',
-      header: 'bg-gray-100',
-      title: 'text-gray-700',
-      count: 'bg-gray-200 text-gray-700'
-    },
-    IN_PROGRESS: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      header: 'bg-blue-100',
-      title: 'text-blue-700',
-      count: 'bg-blue-200 text-blue-700'
-    },
-    DONE: {
-      bg: 'bg-green-50',
-      border: 'border-green-200',
-      header: 'bg-green-100',
-      title: 'text-green-700',
-      count: 'bg-green-200 text-green-700'
-    }
+  const statusColors = {
+    TODO: 'border-slate-800 bg-slate-900/40 text-slate-400',
+    IN_PROGRESS: 'border-indigo-900/50 bg-indigo-950/20 text-indigo-400',
+    DONE: 'border-emerald-900/50 bg-emerald-950/20 text-emerald-400',
   };
 
-  const currentColor = columnColors[status] || columnColors.TODO;
+  const headerColors = {
+    TODO: 'bg-slate-800/40',
+    IN_PROGRESS: 'bg-indigo-500/10',
+    DONE: 'bg-emerald-500/10',
+  };
 
   return (
-    <div className={`
-      flex-1 min-w-0 bg-white rounded-xl shadow-sm border-2
-      ${currentColor.border} ${currentColor.bg}
-      ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}
-      transition-all duration-200
-    `}>
+    <div className={`flex-1 min-w-[320px] max-w-[400px] flex flex-col h-full rounded-2xl border ${statusColors[status].split(' ')[0]} ${statusColors[status].split(' ')[1]}`}>
       {/* Column Header */}
-      <div className={`
-        px-4 py-3 border-b flex items-center justify-between
-        ${currentColor.header}
-      `}>
-        <div className="flex items-center space-x-2">
-          <h2 className={`font-semibold text-sm ${currentColor.title}`}>
-            {title}
-          </h2>
-          <span className={`
-            text-xs font-medium px-2 py-1 rounded-full
-            ${currentColor.count}
-          `}>
-            {tasks.length}
-          </span>
+      <div className={`px-4 py-3 flex items-center justify-between border-b ${statusColors[status].split(' ')[0]} ${headerColors[status]}`}>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xs font-bold uppercase tracking-wider">{title}</h2>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/20">{tasks.length}</span>
         </div>
-        
-        {/* Add Task Button */}
-        <button
-          onClick={() => onAddTask(status)}
-          className={`
-            p-1 rounded-md hover:bg-white hover:bg-opacity-60
-            transition-colors duration-200
-            ${currentColor.title}
-          `}
-          title={`Add task to ${title}`}
-        >
-          <Plus className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => onAddTask(status)} className="p-1 hover:bg-white/5 rounded transition-colors">
+            <Plus className="w-4 h-4" />
+          </button>
+          <button className="p-1 hover:bg-white/5 rounded transition-colors">
+            <MoreVertical className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
-      {/* Tasks Container */}
-      <div
-        ref={setNodeRef}
-        className={`
-          p-4 min-h-[400px] transition-colors duration-200
-          ${isOver ? currentColor.bg : ''}
-        `}
-      >
-        {tasks.length === 0 ? (
-          /* Empty State */
-          <div className="text-center py-8">
-            <div className={`
-              w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center
-              ${currentColor.header}
-            `}>
-              <Plus className={`w-8 h-8 ${currentColor.title}`} />
+      {/* Tasks Area */}
+      <Droppable droppableId={status}>
+        {(provided, snapshot) => (
+          <div
+            {...provided.droppableProps}
+            ref={provided.innerRef}
+            className={`p-3 flex-1 overflow-y-auto min-h-[500px] transition-colors duration-200 ${snapshot.isDraggingOver ? 'bg-white/5' : ''}`}
+          >
+            <div className="space-y-3">
+              {tasks.map((task, index) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  index={index}
+                  onEdit={onTaskEdit}
+                  onDelete={onTaskDelete}
+                />
+              ))}
+              {provided.placeholder}
             </div>
-            <p className={`text-sm ${currentColor.title} mb-2`}>
-              No tasks in {title.toLowerCase()}
-            </p>
-            <button
-              onClick={() => onAddTask(status)}
-              className={`
-                text-sm font-medium hover:underline
-                ${currentColor.title}
-              `}
-            >
-              Add your first task
-            </button>
-          </div>
-        ) : (
-          /* Task List */
-          <div className="space-y-3">
-            {tasks.map((task, index) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                index={index}
-                onEdit={onTaskEdit}
-                onDelete={onTaskDelete}
-              />
-            ))}
+
+            {tasks.length === 0 && !snapshot.isDraggingOver && (
+              <button
+                onClick={() => onAddTask(status)}
+                className="w-full py-6 mt-2 border-2 border-dashed border-white/5 rounded-xl text-slate-600 hover:text-slate-400 hover:border-white/10 hover:bg-white/[0.02] flex flex-col items-center justify-center gap-2 transition-all group"
+              >
+                <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <span className="text-xs font-medium">Add task</span>
+              </button>
+            )}
           </div>
         )}
-        
-        {/* Drop Indicator */}
-        {isOver && (
-          <div className={`
-            border-2 border-dashed rounded-lg p-4 text-center
-            ${currentColor.border}
-          `}>
-            <p className={`text-sm ${currentColor.title}`}>
-              Drop task here
-            </p>
-          </div>
-        )}
-      </div>
+      </Droppable>
     </div>
   );
 };
