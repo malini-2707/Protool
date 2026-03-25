@@ -1,0 +1,106 @@
+// Kanban Board Schema with Authentication
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  MEMBER
+  PROJECT_MANAGER
+  ADMIN
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      UserRole @default(MEMBER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  ownedProjects Project[] @relation("ProjectOwner")
+  teamProjects  ProjectMember[]
+  
+  @@map("users")
+}
+
+model Project {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  startDate   DateTime?      @default(now())
+  endDate     DateTime?
+  status      ProjectStatus  @default(PLANNING)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  
+  // Relations
+  ownerId     String
+  owner       User           @relation("ProjectOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members     ProjectMember[]
+  tasks       Task[]
+  features    ProjectFeature[]
+  
+  @@map("projects")
+}
+
+model ProjectFeature {
+  id        String   @id @default(uuid())
+  projectId String
+  feature   String
+  createdAt DateTime @default(now())
+  
+  // Relations
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, feature])
+  @@map("project_features")
+}
+
+model ProjectMember {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      String   @default("MEMBER")
+  joinedAt  DateTime @default(now())
+  
+  // Relations
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+model Task {
+  id          String     @id @default(uuid())
+  title       String
+  description String?
+  status      String     @default("TODO")
+  projectId   String
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@map("tasks")
+}

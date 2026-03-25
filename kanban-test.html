@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kanban Board Test</title>
+    <script src="https://unpkg.com/axios@1.6.0/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #f5f5f5;
+        }
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            color: #1f2937;
+        }
+        .add-task-btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .add-task-btn:hover {
+            background: #2563eb;
+        }
+        .board {
+            display: flex;
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .column {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .column-header {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e5e5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .column-title {
+            font-weight: 600;
+            color: #374151;
+            font-size: 0.875rem;
+        }
+        .task-count {
+            background: #f3f4f6;
+            color: #6b7280;
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .tasks {
+            padding: 1rem;
+            min-height: 400px;
+        }
+        .task {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            cursor: move;
+            transition: all 0.2s;
+        }
+        .task:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        .task-title {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.5rem;
+        }
+        .task-description {
+            color: #6b7280;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: #9ca3af;
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #6b7280;
+        }
+        .error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #dc2626;
+            padding: 1rem;
+            margin: 1rem 2rem;
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Kanban Board</h1>
+        <button class="add-task-btn" onclick="showAddTaskModal()">+ Add Task</button>
+    </div>
+
+    <div id="error-container"></div>
+
+    <div class="board">
+        <div class="column">
+            <div class="column-header">
+                <span class="column-title">📋 To Do</span>
+                <span class="task-count" id="todo-count">0</span>
+            </div>
+            <div class="tasks" id="todo-tasks">
+                <div class="empty-state">No tasks yet</div>
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="column-header">
+                <span class="column-title">🚀 In Progress</span>
+                <span class="task-count" id="progress-count">0</span>
+            </div>
+            <div class="tasks" id="progress-tasks">
+                <div class="empty-state">No tasks in progress</div>
+            </div>
+        </div>
+
+        <div class="column">
+            <div class="column-header">
+                <span class="column-title">✅ Done</span>
+                <span class="task-count" id="done-count">0</span>
+            </div>
+            <div class="tasks" id="done-tasks">
+                <div class="empty-state">No completed tasks</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        const PROJECT_ID = 'demo-project-123';
+
+        let tasks = [];
+        let draggedTask = null;
+
+        // Load tasks on page load
+        loadTasks();
+
+        async function loadTasks() {
+            try {
+                showLoading();
+                const response = await axios.get(`${API_BASE}/tasks/${PROJECT_ID}`);
+                
+                if (response.data.success) {
+                    tasks = response.data.data;
+                    renderTasks();
+                } else {
+                    showError('Failed to load tasks: ' + response.data.error);
+                }
+            } catch (error) {
+                showError('Error loading tasks: ' + error.message);
+            }
+        }
+
+        function renderTasks() {
+            const todoTasks = tasks.filter(t => t.status === 'TODO');
+            const progressTasks = tasks.filter(t => t.status === 'IN_PROGRESS');
+            const doneTasks = tasks.filter(t => t.status === 'DONE');
+
+            renderColumn('todo', todoTasks);
+            renderColumn('progress', progressTasks);
+            renderColumn('done', doneTasks);
+
+            updateCounts();
+        }
+
+        function renderColumn(columnId, columnTasks) {
+            const container = document.getElementById(`${columnId}-tasks`);
+            
+            if (columnTasks.length === 0) {
+                container.innerHTML = '<div class="empty-state">No tasks</div>';
+                return;
+            }
+
+            container.innerHTML = columnTasks.map(task => `
+                <div class="task" draggable="true" data-task-id="${task.id}">
+                    <div class="task-title">${task.title}</div>
+                    ${task.description ? `<div class="task-description">${task.description}</div>` : ''}
+                </div>
+            `).join('');
+
+            // Add drag event listeners
+            container.querySelectorAll('.task').forEach(taskEl => {
+                taskEl.addEventListener('dragstart', handleDragStart);
+                taskEl.addEventListener('dragend', handleDragEnd);
+            });
+        }
+
+        function updateCounts() {
+            const todoCount = tasks.filter(t => t.status === 'TODO').length;
+            const progressCount = tasks.filter(t => t.status === 'IN_PROGRESS').length;
+            const doneCount = tasks.filter(t => t.status === 'DONE').length;
+
+            document.getElementById('todo-count').textContent = todoCount;
+            document.getElementById('progress-count').textContent = progressCount;
+            document.getElementById('done-count').textContent = doneCount;
+        }
+
+        function handleDragStart(e) {
+            draggedTask = e.target;
+            e.target.style.opacity = '0.5';
+        }
+
+        function handleDragEnd(e) {
+            e.target.style.opacity = '';
+        }
+
+        // Add drop zones
+        document.querySelectorAll('.tasks').forEach(zone => {
+            zone.addEventListener('dragover', handleDragOver);
+            zone.addEventListener('drop', handleDrop);
+        });
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.currentTarget.style.backgroundColor = '#f0f9ff';
+        }
+
+        async function handleDrop(e) {
+            e.preventDefault();
+            e.currentTarget.style.backgroundColor = '';
+
+            if (!draggedTask) return;
+
+            const taskId = draggedTask.dataset.taskId;
+            const newStatus = getNewStatus(e.currentTarget.id);
+
+            if (newStatus) {
+                try {
+                    const response = await axios.put(`${API_BASE}/tasks/${taskId}`, { status: newStatus });
+                    
+                    if (response.data.success) {
+                        // Update local state
+                        const task = tasks.find(t => t.id === taskId);
+                        if (task) {
+                            task.status = newStatus;
+                            renderTasks();
+                        }
+                    } else {
+                        showError('Failed to update task: ' + response.data.error);
+                    }
+                } catch (error) {
+                    showError('Error updating task: ' + error.message);
+                }
+            }
+
+            draggedTask = null;
+        }
+
+        function getNewStatus(columnId) {
+            const statusMap = {
+                'todo-tasks': 'TODO',
+                'progress-tasks': 'IN_PROGRESS',
+                'done-tasks': 'DONE'
+            };
+            return statusMap[columnId];
+        }
+
+        function showAddTaskModal() {
+            const title = prompt('Enter task title:');
+            if (!title || !title.trim()) return;
+
+            const description = prompt('Enter task description (optional):');
+
+            createTask(title.trim(), description?.trim() || '');
+        }
+
+        async function createTask(title, description) {
+            try {
+                const response = await axios.post(`${API_BASE}/tasks`, {
+                    title,
+                    description,
+                    projectId: PROJECT_ID
+                });
+
+                if (response.data.success) {
+                    tasks.unshift(response.data.data);
+                    renderTasks();
+                } else {
+                    showError('Failed to create task: ' + response.data.error);
+                }
+            } catch (error) {
+                showError('Error creating task: ' + error.message);
+            }
+        }
+
+        function showLoading() {
+            document.querySelectorAll('.tasks').forEach(zone => {
+                zone.innerHTML = '<div class="loading">Loading...</div>';
+            });
+        }
+
+        function showError(message) {
+            const errorContainer = document.getElementById('error-container');
+            errorContainer.innerHTML = `<div class="error">${message}</div>`;
+            setTimeout(() => {
+                errorContainer.innerHTML = '';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

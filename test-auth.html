@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auth Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Auth API Test</h1>
+    <button onclick="testRegister()">Test Register</button>
+    <button onclick="testRegisterWithFullURL()">Test Register Full URL</button>
+    <div id="result"></div>
+
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        // Test with baseURL (like frontend)
+        async function testRegister() {
+            try {
+                const apiClient = axios.create({
+                    baseURL: 'http://localhost:5000/api',
+                    timeout: 10000,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                const response = await apiClient.post('/auth/register', {
+                    name: 'Test User',
+                    email: 'test@example.com',
+                    password: 'password123'
+                });
+                resultDiv.innerHTML = '<pre>✅ SUCCESS (baseURL): ' + JSON.stringify(response.data, null, 2) + '</pre>';
+            } catch (error) {
+                resultDiv.innerHTML = '<pre>❌ ERROR (baseURL): ' + error.message + '</pre>';
+                if (error.response) {
+                    resultDiv.innerHTML += '\n\nResponse: ' + JSON.stringify(error.response.data, null, 2);
+                }
+            }
+        }
+        
+        // Test with full URL
+        async function testRegisterWithFullURL() {
+            try {
+                const response = await axios.post('http://localhost:5000/api/auth/register', {
+                    name: 'Test User',
+                    email: 'test@example.com',
+                    password: 'password123'
+                });
+                resultDiv.innerHTML = '<pre>✅ SUCCESS (full URL): ' + JSON.stringify(response.data, null, 2) + '</pre>';
+            } catch (error) {
+                resultDiv.innerHTML = '<pre>❌ ERROR (full URL): ' + error.message + '</pre>';
+                if (error.response) {
+                    resultDiv.innerHTML += '\n\nResponse: ' + JSON.stringify(error.response.data, null, 2);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
