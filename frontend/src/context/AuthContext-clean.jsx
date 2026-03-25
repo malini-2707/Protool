@@ -34,11 +34,22 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-      setIsAuthenticated(true);
+
+    if (storedToken && storedUser && storedUser !== 'undefined' && storedToken !== 'undefined') {
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setToken(storedToken);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+      } catch (e) {
+        // Corrupted data — clear it
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
+    } else {
+      // Clear any stale/invalid values
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
     }
     setLoading(false);
   }, []);
@@ -48,18 +59,18 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      
+
       const response = await authAPI.post('/auth/register', userData);
-      
+
       if (response.data.success) {
         const { data, token: responseToken } = response.data;
-        
+
         setUser(data);
         setToken(responseToken);
         setIsAuthenticated(true);
         localStorage.setItem('token', responseToken);
         localStorage.setItem('user', JSON.stringify(data));
-        
+
         return { success: true };
       } else {
         throw new Error(response.data.error || 'Registration failed');
@@ -83,18 +94,18 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
       setLoading(true);
-      
+
       const response = await authAPI.post('/auth/login', credentials);
-      
+
       if (response.data.success) {
         const { data, token: responseToken } = response.data;
-        
+
         setUser(data);
         setToken(responseToken);
         setIsAuthenticated(true);
         localStorage.setItem('token', responseToken);
         localStorage.setItem('user', JSON.stringify(data));
-        
+
         return { success: true };
       } else {
         throw new Error(response.data.error || 'Login failed');

@@ -24,14 +24,14 @@ export const register = async (req, res) => {
 
     // Validate input
     if (!name || !email || !password) {
-      return res.status(400).json({ 
-        message: "Name, email, and password are required" 
+      return res.status(400).json({
+        message: "Name, email, and password are required"
       });
     }
 
     if (password.length < 6) {
-      return res.status(400).json({ 
-        message: "Password must be at least 6 characters long" 
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long"
       });
     }
 
@@ -41,9 +41,9 @@ export const register = async (req, res) => {
     });
 
     if (existingUser) {
-      return res.status(409).json({ 
+      return res.status(409).json({
         success: false,
-        error: "User with this email already exists" 
+        error: "User with this email already exists"
       });
     }
 
@@ -80,9 +80,9 @@ export const register = async (req, res) => {
 
   } catch (error) {
     console.error("Registration error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: "Internal server error during registration" 
+      error: "Internal server error during registration"
     });
   }
 };
@@ -94,8 +94,8 @@ export const login = async (req, res) => {
 
     // Validate input
     if (!email || !password) {
-      return res.status(400).json({ 
-        message: "Email and password are required" 
+      return res.status(400).json({
+        message: "Email and password are required"
       });
     }
 
@@ -105,9 +105,9 @@ export const login = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        error: "Invalid email or password" 
+        error: "Invalid email or password"
       });
     }
 
@@ -115,9 +115,9 @@ export const login = async (req, res) => {
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ 
+      return res.status(401).json({
         success: false,
-        error: "Invalid email or password" 
+        error: "Invalid email or password"
       });
     }
 
@@ -142,9 +142,9 @@ export const login = async (req, res) => {
 
   } catch (error) {
     console.error("Login error:", error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: "Internal server error during login" 
+      error: "Internal server error during login"
     });
   }
 };
@@ -165,8 +165,8 @@ export const getProfile = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ 
-        message: "User not found" 
+      return res.status(404).json({
+        message: "User not found"
       });
     }
 
@@ -174,8 +174,8 @@ export const getProfile = async (req, res) => {
 
   } catch (error) {
     console.error("Get profile error:", error);
-    res.status(500).json({ 
-      message: "Internal server error" 
+    res.status(500).json({
+      message: "Internal server error"
     });
   }
 };
@@ -193,8 +193,8 @@ export const updateProfile = async (req, res) => {
       });
 
       if (existingUser) {
-        return res.status(409).json({ 
-          message: "Email is already taken" 
+        return res.status(409).json({
+          message: "Email is already taken"
         });
       }
     }
@@ -222,8 +222,8 @@ export const updateProfile = async (req, res) => {
 
   } catch (error) {
     console.error("Update profile error:", error);
-    res.status(500).json({ 
-      message: "Internal server error" 
+    res.status(500).json({
+      message: "Internal server error"
     });
   }
 };
@@ -236,14 +236,14 @@ export const changePassword = async (req, res) => {
 
     // Validate input
     if (!currentPassword || !newPassword) {
-      return res.status(400).json({ 
-        message: "Current password and new password are required" 
+      return res.status(400).json({
+        message: "Current password and new password are required"
       });
     }
 
     if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        message: "New password must be at least 6 characters long" 
+      return res.status(400).json({
+        message: "New password must be at least 6 characters long"
       });
     }
 
@@ -253,8 +253,8 @@ export const changePassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ 
-        message: "User not found" 
+      return res.status(404).json({
+        message: "User not found"
       });
     }
 
@@ -262,8 +262,8 @@ export const changePassword = async (req, res) => {
     const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
 
     if (!isCurrentPasswordValid) {
-      return res.status(401).json({ 
-        message: "Current password is incorrect" 
+      return res.status(401).json({
+        message: "Current password is incorrect"
       });
     }
 
@@ -277,14 +277,14 @@ export const changePassword = async (req, res) => {
       data: { password: hashedNewPassword }
     });
 
-    res.json({ 
-      message: "Password changed successfully" 
+    res.json({
+      message: "Password changed successfully"
     });
 
   } catch (error) {
     console.error("Change password error:", error);
-    res.status(500).json({ 
-      message: "Internal server error" 
+    res.status(500).json({
+      message: "Internal server error"
     });
   }
 };
