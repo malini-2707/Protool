@@ -1,8 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext-clean';
 import { useNavigate } from 'react-router-dom';
+import { projectService } from '../services/projectService-prisma';
 
-const StatCard = ({ title, value, icon, gradient, buttonLabel, buttonColor, onClick }) => (
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const Spinner = () => (
+  <svg
+    className="animate-spin h-7 w-7 text-white/60 mx-auto"
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+  >
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+  </svg>
+);
+
+const StatCard = ({ title, value, icon, gradient, buttonLabel, buttonColor, onClick, loading }) => (
   <div
     className={`relative overflow-hidden rounded-2xl p-6 shadow-lg flex flex-col items-center text-center transition-transform duration-300 hover:-translate-y-1 hover:shadow-xl ${gradient}`}
   >
@@ -11,7 +26,15 @@ const StatCard = ({ title, value, icon, gradient, buttonLabel, buttonColor, onCl
 
     <div className="text-4xl mb-3">{icon}</div>
     <p className="text-sm font-semibold uppercase tracking-widest text-white/70 mb-1">{title}</p>
-    <p className="text-5xl font-extrabold text-white mb-5">{value}</p>
+
+    {loading ? (
+      <div className="my-3">
+        <Spinner />
+      </div>
+    ) : (
+      <p className="text-5xl font-extrabold text-white mb-5">{value}</p>
+    )}
+
     <button
       onClick={onClick}
       className={`px-5 py-2 rounded-full text-sm font-semibold shadow-md transition-all duration-200 hover:scale-105 active:scale-95 ${buttonColor}`}
@@ -21,9 +44,48 @@ const StatCard = ({ title, value, icon, gradient, buttonLabel, buttonColor, onCl
   </div>
 );
 
+// ── Main Component ────────────────────────────────────────────────────────────
+
 const DashboardPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [projectCount, setProjectCount] = useState(null);
+  const [taskCount, setTaskCount] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  // Fetch real counts on mount
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoadingStats(true);
+        // Fetch page 1 with limit 100 to get all projects + their task counts
+        const res = await projectService.getUserProjects({ page: 1, limit: 100 });
+
+        if (res?.success) {
+          const projects = res.data?.projects ?? [];
+          const total = res.data?.pagination?.total ?? projects.length;
+
+          // Sum tasks across all projects using the included _count.tasks
+          const totalTasks = projects.reduce(
+            (sum, p) => sum + (p._count?.tasks ?? p.tasks?.length ?? 0),
+            0
+          );
+
+          setProjectCount(total);
+          setTaskCount(totalTasks);
+        }
+      } catch (err) {
+        console.error('Dashboard stats error:', err);
+        setProjectCount(0);
+        setTaskCount(0);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const handleLogout = () => {
     logout();
@@ -69,7 +131,8 @@ const DashboardPage = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white leading-tight">
-              Welcome back, <span className="text-indigo-400">{user?.name || 'User'}</span>!
+              Welcome back,{' '}
+              <span className="text-indigo-400">{user?.name || 'User'}</span>!
             </h1>
             <p className="text-sm text-slate-400 mt-0.5">{user?.email}</p>
             <span
@@ -89,21 +152,23 @@ const DashboardPage = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <StatCard
             title="Projects"
-            value="0"
+            value={projectCount ?? 0}
             icon="🗂️"
             gradient="bg-gradient-to-br from-indigo-600 to-blue-700"
             buttonLabel="View Projects"
             buttonColor="bg-white text-indigo-700 hover:bg-indigo-50"
             onClick={() => navigate('/projects')}
+            loading={loadingStats}
           />
           <StatCard
             title="Tasks"
-            value="0"
+            value={taskCount ?? 0}
             icon="✅"
             gradient="bg-gradient-to-br from-emerald-600 to-teal-700"
             buttonLabel="View Tasks"
             buttonColor="bg-white text-emerald-700 hover:bg-emerald-50"
             onClick={() => navigate('/tasks')}
+            loading={loadingStats}
           />
           <StatCard
             title="Profile"
@@ -113,6 +178,7 @@ const DashboardPage = () => {
             buttonLabel="View Profile"
             buttonColor="bg-white text-violet-700 hover:bg-violet-50"
             onClick={() => navigate('/profile')}
+            loading={false}
           />
         </div>
 
