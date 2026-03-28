@@ -111,17 +111,20 @@ export default function MainLayout() {
             })}
           </nav>
           <div className="p-4 border-t">
-            <div className="flex items-center mb-3">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+            <button 
+              onClick={() => navigate('/profile')}
+              className="flex items-center mb-3 w-full group/user hover:bg-gray-50 p-2 rounded-lg transition-all duration-200"
+            >
+              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center group-hover/user:scale-110 transition-transform">
                 <span className="text-sm font-medium text-white">
                   {user?.name?.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+              <div className="ml-3 text-left">
+                <p className="text-sm font-medium text-gray-900 group-hover/user:text-blue-600 transition-colors">{user?.name}</p>
                 <p className="text-xs text-gray-500">{user?.email}</p>
               </div>
-            </div>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center w-full px-3 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-50 hover:text-gray-900"
@@ -159,6 +162,17 @@ export default function MainLayout() {
             <div className="flex items-center space-x-4">
               <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-md">
                 <Bell className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => navigate('/profile')}
+                className="flex items-center gap-2 p-1 hover:bg-gray-100 rounded-full transition-all"
+              >
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-medium text-white">
+                    {user?.name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <span className="hidden md:block text-sm font-medium text-gray-700">{user?.name}</span>
               </button>
             </div>
           </div>

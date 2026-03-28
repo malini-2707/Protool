@@ -1,192 +1,141 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useAuth } from '../context/AuthContext-clean';
 import { useNavigate } from 'react-router-dom';
-import { projectService } from '../services/projectService-prisma';
+import { motion } from 'framer-motion';
+import { 
+  FolderKanban, 
+  ClipboardCheck, 
+  User, 
+  Settings, 
+  Pencil,
+  LogOut,
+  LayoutDashboard
+} from 'lucide-react';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const Spinner = () => (
-  <svg
-    className="animate-spin h-7 w-7 text-white/60 mx-auto"
-    xmlns="http://www.w3.org/2000/svg"
-    fill="none"
-    viewBox="0 0 24 24"
+const NavCard = ({ title, icon, subIcon, bgColor, onClick, delay }) => (
+  <motion.button
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.5, delay }}
+    whileHover={{ scale: 1.05, translateY: -10 }}
+    whileTap={{ scale: 0.95 }}
+    onClick={onClick}
+    className={`relative group overflow-hidden w-full aspect-square max-w-[320px] rounded-[2.5rem] ${bgColor} p-8 flex flex-col items-center justify-center shadow-2xl transition-all duration-300 hover:shadow-[0_20px_50px_rgba(0,0,0,0.3)]`}
   >
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-  </svg>
-);
-
-const StatCard = ({ title, value, icon, gradient, buttonLabel, buttonColor, onClick, loading }) => (
-  <div
-    className={`relative overflow-hidden rounded-2xl p-6 shadow-lg flex flex-col items-center text-center transition-transform duration-300 hover:-translate-y-1 hover:shadow-xl ${gradient}`}
-  >
-    {/* Decorative blob */}
-    <div className="absolute -top-6 -right-6 w-28 h-28 rounded-full opacity-20 bg-white" />
-
-    <div className="text-4xl mb-3">{icon}</div>
-    <p className="text-sm font-semibold uppercase tracking-widest text-white/70 mb-1">{title}</p>
-
-    {loading ? (
-      <div className="my-3">
-        <Spinner />
+    {/* Decorative circle in corner to match image */}
+    <div className="absolute top-4 right-4 w-16 h-16 rounded-full bg-white/10 blur-xl group-hover:bg-white/20 transition-all duration-500" />
+    
+    {/* Icon Container */}
+    <div className="relative mb-8 transform group-hover:scale-110 transition-transform duration-500">
+      <div className="relative">
+        {icon}
+        {/* Sub-icon (gear/pencil) positioned relative to main icon */}
+        <div className="absolute -bottom-2 -right-2 bg-slate-900/40 backdrop-blur-md p-2 rounded-xl shadow-lg border border-white/10">
+          {subIcon}
+        </div>
       </div>
-    ) : (
-      <p className="text-5xl font-extrabold text-white mb-5">{value}</p>
-    )}
+    </div>
 
-    <button
-      onClick={onClick}
-      className={`px-5 py-2 rounded-full text-sm font-semibold shadow-md transition-all duration-200 hover:scale-105 active:scale-95 ${buttonColor}`}
-    >
-      {buttonLabel}
-    </button>
-  </div>
+    {/* Title */}
+    <h3 className="text-3xl font-bold text-white tracking-wide">
+      {title}
+    </h3>
+  </motion.button>
 );
-
-// ── Main Component ────────────────────────────────────────────────────────────
 
 const DashboardPage = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-
-  const [projectCount, setProjectCount] = useState(null);
-  const [taskCount, setTaskCount] = useState(null);
-  const [loadingStats, setLoadingStats] = useState(true);
-
-  // Fetch real counts on mount
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setLoadingStats(true);
-        // Fetch page 1 with limit 100 to get all projects + their task counts
-        const res = await projectService.getUserProjects({ page: 1, limit: 100 });
-
-        if (res?.success) {
-          const projects = res.data?.projects ?? [];
-          const total = res.data?.pagination?.total ?? projects.length;
-
-          // Sum tasks across all projects using the included _count.tasks
-          const totalTasks = projects.reduce(
-            (sum, p) => sum + (p._count?.tasks ?? p.tasks?.length ?? 0),
-            0
-          );
-
-          setProjectCount(total);
-          setTaskCount(totalTasks);
-        }
-      } catch (err) {
-        console.error('Dashboard stats error:', err);
-        setProjectCount(0);
-        setTaskCount(0);
-      } finally {
-        setLoadingStats(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
 
-  const initials = (user?.name || 'U')
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-
-  const roleBadge = {
-    ADMIN: 'bg-rose-500/20 text-rose-300 border border-rose-400/30',
-    MEMBER: 'bg-sky-500/20 text-sky-300 border border-sky-400/30',
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white">
-      {/* Top Nav */}
-      <header className="flex items-center justify-between px-8 py-5 border-b border-white/5 backdrop-blur-sm bg-white/5">
+    <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden bg-slate-950">
+      {/* Visual Radial Gradient Background - Match Image */}
+      <div 
+        className="absolute inset-0 z-0"
+        style={{
+          background: 'radial-gradient(circle at center, #1e1b4e 0%, #020617 100%)'
+        }}
+      />
+
+      {/* Subtle Background Glows */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[150px] pointer-events-none" />
+
+      {/* Top Header Section */}
+      <motion.header 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute top-0 left-0 right-0 z-20 px-10 py-8 flex justify-between items-center"
+      >
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-indigo-500/40">
-            P
+          <div className="p-2 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
+            <LayoutDashboard className="w-6 h-6 text-indigo-400" />
           </div>
-          <span className="text-lg font-bold tracking-tight text-white">ProTool</span>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="px-4 py-1.5 text-sm font-medium rounded-full border border-rose-400/30 text-rose-300 hover:bg-rose-500/10 transition-all duration-200"
-        >
-          Sign out
-        </button>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-6 py-12">
-        {/* Welcome Banner */}
-        <div className="flex items-center gap-5 bg-white/5 border border-white/10 rounded-2xl p-6 mb-10 shadow-lg backdrop-blur-sm">
-          {/* Avatar */}
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-2xl font-bold text-white shadow-lg shadow-indigo-500/30 flex-shrink-0">
-            {initials}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white leading-tight">
-              Welcome back,{' '}
-              <span className="text-indigo-400">{user?.name || 'User'}</span>!
-            </h1>
-            <p className="text-sm text-slate-400 mt-0.5">{user?.email}</p>
-            <span
-              className={`inline-block mt-2 px-3 py-0.5 rounded-full text-xs font-semibold ${
-                roleBadge[user?.role] ?? roleBadge.MEMBER
-              }`}
-            >
-              {user?.role || 'MEMBER'}
-            </span>
-          </div>
+          <span className="text-xl font-bold tracking-tight text-white/90">ProTool</span>
         </div>
 
-        {/* Stat Cards */}
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-4">
-          Quick Access
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          <StatCard
-            title="Projects"
-            value={projectCount ?? 0}
-            icon="🗂️"
-            gradient="bg-gradient-to-br from-indigo-600 to-blue-700"
-            buttonLabel="View Projects"
-            buttonColor="bg-white text-indigo-700 hover:bg-indigo-50"
-            onClick={() => navigate('/projects')}
-            loading={loadingStats}
-          />
-          <StatCard
-            title="Tasks"
-            value={taskCount ?? 0}
-            icon="✅"
-            gradient="bg-gradient-to-br from-emerald-600 to-teal-700"
-            buttonLabel="View Tasks"
-            buttonColor="bg-white text-emerald-700 hover:bg-emerald-50"
-            onClick={() => navigate('/tasks')}
-            loading={loadingStats}
-          />
-          <StatCard
-            title="Profile"
-            value="⚙️"
-            icon="👤"
-            gradient="bg-gradient-to-br from-violet-600 to-purple-700"
-            buttonLabel="View Profile"
-            buttonColor="bg-white text-violet-700 hover:bg-violet-50"
+        <div className="flex items-center gap-6">
+          <button 
             onClick={() => navigate('/profile')}
-            loading={false}
-          />
+            className="hidden sm:flex flex-col items-end group/user transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <span className="text-sm font-semibold text-white/80 group-hover/user:text-white transition-colors">{user?.name}</span>
+            <span className="text-[10px] uppercase tracking-widest text-indigo-400 font-bold group-hover/user:text-indigo-300 transition-colors">{user?.role}</span>
+          </button>
+          <button
+            onClick={handleLogout}
+            className="p-3 rounded-2xl bg-white/5 border border-white/10 text-white/60 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all duration-300"
+            title="Sign Out"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
+      </motion.header>
 
-        {/* Footer note */}
-        <p className="text-center text-xs text-slate-600 mt-14">
-          ProTool · Project Management Platform
-        </p>
+      {/* Grid of Navigation Cards */}
+      <main className="relative z-10 w-full max-w-7xl px-8 py-20 flex flex-wrap items-center justify-center gap-8 lg:gap-12">
+        <NavCard
+          title="Projects"
+          icon={<FolderKanban className="w-24 h-24 text-white drop-shadow-2xl" strokeWidth={1.5} />}
+          subIcon={<Settings className="w-6 h-6 text-blue-200" />}
+          bgColor="bg-gradient-to-br from-blue-600 to-indigo-700"
+          onClick={() => navigate('/projects')}
+          delay={0.1}
+        />
+        
+        <NavCard
+          title="Tasks"
+          icon={<ClipboardCheck className="w-24 h-24 text-white drop-shadow-2xl" strokeWidth={1.5} />}
+          subIcon={<Pencil className="w-6 h-6 text-emerald-200" />}
+          bgColor="bg-gradient-to-br from-emerald-600 to-teal-700"
+          onClick={() => navigate('/tasks')}
+          delay={0.2}
+        />
+        
+        <NavCard
+          title="Profile"
+          icon={<User className="w-24 h-24 text-white drop-shadow-2xl" strokeWidth={1.5} />}
+          subIcon={<Settings className="w-6 h-6 text-purple-200" />}
+          bgColor="bg-gradient-to-br from-purple-600 to-fuchsia-700"
+          onClick={() => navigate('/profile')}
+          delay={0.3}
+        />
       </main>
+
+      {/* Footer / Branding */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1 }}
+        className="absolute bottom-8 text-white/20 text-xs font-medium tracking-[0.2em] uppercase pointer-events-none"
+      >
+        Designed for Excellence · ProTool 2026
+      </motion.div>
     </div>
   );
 };
